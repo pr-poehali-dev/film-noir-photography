@@ -28,6 +28,7 @@ export default function Index() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(true);
   const [direction, setDirection] = useState<'next' | 'prev'>('next');
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   useEffect(() => {
     if (!isPlaying) return;
@@ -68,7 +69,36 @@ export default function Index() {
     }
   };
 
+  const toggleFullscreen = () => {
+    setIsFullscreen(!isFullscreen);
+  };
+
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isFullscreen) {
+        setIsFullscreen(false);
+      }
+    };
+
+    const handleArrowKeys = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowLeft') {
+        handlePrev();
+      } else if (e.key === 'ArrowRight') {
+        handleNext();
+      }
+    };
+
+    window.addEventListener('keydown', handleEscape);
+    window.addEventListener('keydown', handleArrowKeys);
+
+    return () => {
+      window.removeEventListener('keydown', handleEscape);
+      window.removeEventListener('keydown', handleArrowKeys);
+    };
+  }, [isFullscreen]);
+
   return (
+    <>
     <div className="min-h-screen bg-[#0a0a0a] flex flex-col items-center justify-center p-4">
       <div className="w-full max-w-6xl">
         <header className="text-center mb-8 md:mb-12">
@@ -139,6 +169,13 @@ export default function Index() {
               <Icon name={isPlaying ? 'Pause' : 'Play'} size={20} />
             </button>
             <button
+              onClick={toggleFullscreen}
+              className="bg-black/50 hover:bg-[#d4af37] text-white hover:text-black transition-all duration-300 rounded-full p-3 backdrop-blur-sm"
+              aria-label="Полноэкранный режим"
+            >
+              <Icon name="Maximize2" size={20} />
+            </button>
+            <button
               onClick={handleDownload}
               className="bg-black/50 hover:bg-[#d4af37] text-white hover:text-black transition-all duration-300 rounded-full p-3 backdrop-blur-sm"
               aria-label="Скачать фото"
@@ -199,5 +236,100 @@ export default function Index() {
         </footer>
       </div>
     </div>
+
+    {isFullscreen && (
+      <div className="fixed inset-0 z-50 bg-black flex items-center justify-center animate-fade-in">
+        <button
+          onClick={toggleFullscreen}
+          className="absolute top-6 right-6 bg-black/50 hover:bg-[#d4af37] text-white hover:text-black transition-all duration-300 rounded-full p-4 backdrop-blur-sm z-10"
+          aria-label="Закрыть полноэкранный режим"
+        >
+          <Icon name="X" size={24} />
+        </button>
+
+        <button
+          onClick={handlePrev}
+          className="absolute left-6 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-[#d4af37] text-white hover:text-black transition-all duration-300 rounded-full p-4 backdrop-blur-sm z-10"
+          aria-label="Предыдущее фото"
+        >
+          <Icon name="ChevronLeft" size={32} />
+        </button>
+
+        <button
+          onClick={handleNext}
+          className="absolute right-6 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-[#d4af37] text-white hover:text-black transition-all duration-300 rounded-full p-4 backdrop-blur-sm z-10"
+          aria-label="Следующее фото"
+        >
+          <Icon name="ChevronRight" size={32} />
+        </button>
+
+        <div className="absolute top-6 left-6 flex gap-2 z-10">
+          <button
+            onClick={() => setIsPlaying(!isPlaying)}
+            className="bg-black/50 hover:bg-[#d4af37] text-white hover:text-black transition-all duration-300 rounded-full p-4 backdrop-blur-sm"
+            aria-label={isPlaying ? 'Пауза' : 'Воспроизвести'}
+          >
+            <Icon name={isPlaying ? 'Pause' : 'Play'} size={24} />
+          </button>
+          <button
+            onClick={handleDownload}
+            className="bg-black/50 hover:bg-[#d4af37] text-white hover:text-black transition-all duration-300 rounded-full p-4 backdrop-blur-sm"
+            aria-label="Скачать фото"
+          >
+            <Icon name="Download" size={24} />
+          </button>
+        </div>
+
+        <div className="relative w-full h-full flex items-center justify-center p-16">
+          {images.map((image, idx) => (
+            <div
+              key={image.id}
+              className={`absolute inset-0 flex items-center justify-center transition-all duration-700 ease-in-out ${
+                idx === currentIndex
+                  ? 'opacity-100 scale-100'
+                  : 'opacity-0 scale-95'
+              }`}
+            >
+              <img
+                src={image.url}
+                alt={image.title}
+                className="max-w-full max-h-full object-contain"
+              />
+            </div>
+          ))}
+
+          <div className="absolute bottom-12 left-0 right-0 text-center">
+            <h2 className="text-3xl md:text-5xl font-bold text-white mb-2">
+              {images[currentIndex].title}
+            </h2>
+            <p className="text-base md:text-xl text-gray-300 font-light">
+              {images[currentIndex].description}
+            </p>
+            <p className="text-sm text-gray-500 mt-4">
+              {currentIndex + 1} / {images.length}
+            </p>
+          </div>
+        </div>
+
+        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-3">
+          {images.map((_, idx) => (
+            <button
+              key={idx}
+              onClick={() => {
+                setDirection(idx > currentIndex ? 'next' : 'prev');
+                setCurrentIndex(idx);
+              }}
+              className={`transition-all duration-300 rounded-full ${
+                idx === currentIndex
+                  ? 'w-12 h-3 bg-[#d4af37]'
+                  : 'w-3 h-3 bg-white/30 hover:bg-white/50'
+              }`}
+              aria-label={`Перейти к фото ${idx + 1}`}
+            />
+          ))}
+        </div>
+      </div>
+    )}
+    </>
   );
 }
