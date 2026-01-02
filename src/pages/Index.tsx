@@ -2,8 +2,19 @@ import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import Icon from '@/components/ui/icon';
 import { toast } from 'sonner';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 
-const images = [
+interface ImageData {
+  id: number;
+  url: string;
+  title: string;
+  description: string;
+}
+
+const defaultImages: ImageData[] = [
   {
     id: 1,
     url: 'https://cdn.poehali.dev/projects/85121e15-6b0a-484d-a79c-12f39ac7ab67/files/9e9f58b3-d0ef-4ab7-96d2-18d9b39c535d.jpg',
@@ -25,10 +36,20 @@ const images = [
 ];
 
 export default function Index() {
+  const [images, setImages] = useState<ImageData[]>(() => {
+    const saved = localStorage.getItem('gallery-images');
+    return saved ? JSON.parse(saved) : defaultImages;
+  });
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(true);
   const [direction, setDirection] = useState<'next' | 'prev'>('next');
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isUploadOpen, setIsUploadOpen] = useState(false);
+  const [newImage, setNewImage] = useState({ title: '', description: '', file: null as File | null });
+
+  useEffect(() => {
+    localStorage.setItem('gallery-images', JSON.stringify(images));
+  }, [images]);
 
   useEffect(() => {
     if (!isPlaying) return;
@@ -73,6 +94,46 @@ export default function Index() {
     setIsFullscreen(!isFullscreen);
   };
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setNewImage({ ...newImage, file: e.target.files[0] });
+    }
+  };
+
+  const handleUpload = () => {
+    if (!newImage.file || !newImage.title) {
+      toast.error('Заполните название и выберите файл');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const newImageData: ImageData = {
+        id: Date.now(),
+        url: e.target?.result as string,
+        title: newImage.title,
+        description: newImage.description
+      };
+      setImages([...images, newImageData]);
+      setNewImage({ title: '', description: '', file: null });
+      setIsUploadOpen(false);
+      toast.success('Фотография добавлена!');
+    };
+    reader.readAsDataURL(newImage.file);
+  };
+
+  const handleDeleteImage = (id: number) => {
+    if (images.length <= 1) {
+      toast.error('Нельзя удалить последнюю фотографию');
+      return;
+    }
+    setImages(images.filter(img => img.id !== id));
+    if (currentIndex >= images.length - 1) {
+      setCurrentIndex(Math.max(0, images.length - 2));
+    }
+    toast.success('Фотография удалена');
+  };
+
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && isFullscreen) {
@@ -102,9 +163,61 @@ export default function Index() {
     <div className="min-h-screen bg-[#0a0a0a] flex flex-col items-center justify-center p-4">
       <div className="w-full max-w-6xl">
         <header className="text-center mb-8 md:mb-12">
-          <h1 className="text-4xl md:text-6xl font-bold text-[#f5f5f5] mb-3 tracking-tight">
-            Галерея
-          </h1>
+          <div className="flex items-center justify-center gap-4 mb-3">
+            <h1 className="text-4xl md:text-6xl font-bold text-[#f5f5f5] tracking-tight">
+              Галерея
+            </h1>
+            <Dialog open={isUploadOpen} onOpenChange={setIsUploadOpen}>
+              <DialogTrigger asChild>
+                <button className="bg-[#d4af37] hover:bg-[#c49d2f] text-black transition-all duration-300 rounded-full p-3">
+                  <Icon name="Plus" size={24} />
+                </button>
+              </DialogTrigger>
+              <DialogContent className="bg-[#0a0a0a] border-[#333] text-white">
+                <DialogHeader>
+                  <DialogTitle className="text-2xl font-bold text-[#f5f5f5]">Добавить фотографию</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 mt-4">
+                  <div>
+                    <Label htmlFor="title" className="text-[#999]">Название</Label>
+                    <Input
+                      id="title"
+                      value={newImage.title}
+                      onChange={(e) => setNewImage({ ...newImage, title: e.target.value })}
+                      className="bg-[#1a1a1a] border-[#333] text-white mt-1"
+                      placeholder="Название фотографии"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="description" className="text-[#999]">Описание</Label>
+                    <Textarea
+                      id="description"
+                      value={newImage.description}
+                      onChange={(e) => setNewImage({ ...newImage, description: e.target.value })}
+                      className="bg-[#1a1a1a] border-[#333] text-white mt-1"
+                      placeholder="Описание фотографии"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="file" className="text-[#999]">Файл</Label>
+                    <Input
+                      id="file"
+                      type="file"
+                      accept="image/*"
+                      onChange={handleFileChange}
+                      className="bg-[#1a1a1a] border-[#333] text-white mt-1"
+                    />
+                  </div>
+                  <Button
+                    onClick={handleUpload}
+                    className="w-full bg-[#d4af37] hover:bg-[#c49d2f] text-black font-semibold"
+                  >
+                    Загрузить
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+          </div>
           <p className="text-[#999] text-sm md:text-base font-light">
             Кинематографичные моменты в черно-белом стиле
           </p>
@@ -181,6 +294,13 @@ export default function Index() {
               aria-label="Скачать фото"
             >
               <Icon name="Download" size={20} />
+            </button>
+            <button
+              onClick={() => handleDeleteImage(images[currentIndex].id)}
+              className="bg-black/50 hover:bg-red-500 text-white transition-all duration-300 rounded-full p-3 backdrop-blur-sm"
+              aria-label="Удалить фото"
+            >
+              <Icon name="Trash2" size={20} />
             </button>
           </div>
         </div>
